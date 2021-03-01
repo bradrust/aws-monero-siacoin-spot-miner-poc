@@ -70,6 +70,10 @@ Metadata:
 # Help for CloudFormation Parameters
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
 Parameters:
+  InstanceCount:
+    Type: Number
+    Default: 5
+    MaxValue: 10
   SiaCoinAddr:
     Description: YOUR Siacoin wallet address here.
     Type: String
@@ -105,6 +109,7 @@ Parameters:
       - pool.myriade.io:8222
       - siamining.com:3333
       - 98.202.252.84:3031
+      - 98.202.252.84:3034
   SubnetIds:
     Description: The subnets where the instances will be deployed - at least 3 subnets!
     Type: List<AWS::EC2::Subnet::Id>
@@ -143,6 +148,7 @@ Parameters:
     - p2
     - g2
     - c5a
+    - t2
   SpotPrice:
     Description: "Enter a your spot bid amount. Current prices listed at: https://aws.amazon.com/ec2/spot/pricing/"
     Type: String
@@ -153,7 +159,7 @@ Parameters:
     Type: String
     Default: AWS-SPOT-MINER
   InstanceSize:
-    Description: Choose either a p2 or g2 instance type.
+    Description: Choose either t2.small or c5a.4xlarge.
     Type: String
     Default: c5a.4xlarge
     AllowedValues:
@@ -163,6 +169,7 @@ Parameters:
     - c5a.4xlarge
     - c5a.8xlarge
     - c5a.12xlarge
+    - t2.small
   MinerIntensity:
     Description: Select miner intensity for marlin. Keep the default of 28 if not sure.
     Type: String
@@ -182,6 +189,9 @@ Parameters:
     MinLength: 9
     MaxLength: 18
     Default : 98.202.252.84/32
+    AllowedValues:
+      - 0.0.0.0/0
+      - 98.202.252.84/32
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})(/32)"
     ConstraintDescription: Must be a valid CIDR range of the form x.x.x.x/32
 # Help for CloudFormation Mappings
@@ -193,38 +203,48 @@ Mappings:
       # Redundant to have same AMI but could be useful in future if AMI should be different for each GPU family type.
       p2: ami-ed947194
       g2: ami-ed947194
+      ImageId: ami-0996d3051b72b5b2c
     # Asia Pacific (Tokyo)
     ap-northeast-1:
       p2: ami-4e0e1f29
       g2: ami-4e0e1f29
+      ImageId: ami-0996d3051b72b5b2c
     # Asia Pacific (Sydney)
     ap-southeast-2:
       p2: ami-e77c6f84
       g2: ami-e77c6f84
+      ImageId: ami-0996d3051b72b5b2c
     # US East (N. Virginia)
     us-east-1:
       p2: ami-c5eadcd3
       g2: ami-c5eadcd3
       c5a: ami-0996d3051b72b5b2c
+      t2: ami-0996d3051b72b5b2c
+      ImageId: ami-0996d3051b72b5b2c
     # US East (Ohio) - only supports p2 family.
     us-east-2:
       p2: ami-c8f3a8ad
       c5a: ami-0996d3051b72b5b2c
+      ImageId: ami-0996d3051b72b5b2c
     # US West (N. California) - only supports g2 family.
     us-west-1:
       g2: ami-68002c08
       c5a: ami-0996d3051b72b5b2c
+      ImageId: ami-0996d3051b72b5b2c
     # US West (Oregon)
     us-west-2:
       p2: ami-aaebfcd3
       g2: ami-aaebfcd3
       c5a: ami-0996d3051b72b5b2c
+      ImageId: ami-0996d3051b72b5b2c
     # Asia Pacific (Singapore) - only supports g2 family.
     ap-southeast-1:
       g2: ami-f35cd290
+      ImageId: ami-0996d3051b72b5b2c
     # EU (Frankfurt) - only supports g2 family.
     eu-central-1:
       g2: ami-cf3294a0
+      ImageId: ami-0996d3051b72b5b2c
 Resources:
   InstanceRole:
     Type: AWS::IAM::Role
@@ -248,132 +268,76 @@ Resources:
         - !Ref InstanceRole
 
   LaunchTemplate:
+    DependsOn:
+      - MinerInstanceProfile
+      - MinerInstanceRole
+      - MinerInstanceSSG
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
         IamInstanceProfile:
           Arn: !GetAtt InstanceProfile.Arn
         InstanceType:
-          Ref: InstanceType
+          Ref: InstanceSize
         KeyName:
           Ref: KeyName
         ImageId: !FindInMap [ RegionMap, !Ref "AWS::Region", ImageId ]
         SecurityGroupIds:
-          - !Ref SecurityGroup
+          - !Ref MinerInstanceSSG
         UserData:
           'Fn::Base64':
             'Fn::Sub': |
               #!/bin/bash -x
-              cd /tmp
-              INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
-              INSTANCE_ID=AWS-ETH-WORKER
-              wget -O ethminer.tar.gz https://github.com/ethereum-mining/ethminer/releases/download/v0.18.0/ethminer-0.18.0-cuda-9-linux-x86_64.tar.gz
-              tar xvfz ethminer.tar.gz
-              cd bin
+
+              cat > /etc/systemd/system/xmrig.service << __EOF__
+              [Unit]
+              After=network.service
+              [Service]
+              ExecStart=/xmrig-6.9.0/runner.sh
+              [Install]
+              WantedBy=default.target
+              __EOF__
+
+              chmod 664 /etc/systemd/system/xmrig.service
+              systemctl daemon-reload
+              systemctl enable xmrig.service
+
+              wget https://github.com/xmrig/xmrig/releases/download/v6.9.0/xmrig-6.9.0-focal-x64.tar.gz
+              tar xvzf xmrig-6.9.0-focal-x64.tar.gz
+              cd xmrig-6.9.0
+
+              cat > config.json << __EOF__
+              {
+                  "autosave": true,
+                  "cpu": {
+                    "enabled": true,
+                    "huge-pages": true
+                  },
+                  "opencl": false,
+                  "cuda": false,
+                  "pools": [
+                      {
+                          "url": "${MoneroMiningPool}",
+                          "user": "aws-remote",
+                          "pass": "xxxPASSxxx",
+                          "rig-id": null,
+                          "tls": true
+                      }
+                  ]
+              }
+              __EOF__
+
               cat > runner.sh << __EOF__
               #!/bin/bash -x
-              #SERVERS=(us1 us2 eu1 asia1)
-              SERVERS=(us1 us2)
+              cd /xmrig-6.9.0
               while (true); do
-                PREFERRED_SERVER=\${!SERVERS[\${!RANDOM} % \${!#SERVERS[@]}]}
-                #./ethminer \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@\${!PREFERRED_SERVER}.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@us1.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@us2.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@eu1.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@asia1.ethermine.org:5555 \
-                # >> /tmp/ethminer.log 2>&1
-                ./ethminer \
-                  -P stratums://${Worker}.${Password}@${Url1} \
-                  -P stratums://${Worker}.${Password}@${Url2} \
-                  >> /tmp/ethminer.log 2>&1
+                ./xmrig \
+                  >> xmrig.log 2>&1
               done
               __EOF__
               chmod +x runner.sh
               nohup ./runner.sh &
 
-
-  SpotFleet:
-    DependsOn:
-      - MinerInstanceProfile
-      - MinerInstanceRole
-      - MinerInstanceSSG
-    Type: AWS::EC2::SpotFleet
-    Properties:
-      SpotFleetRequestConfigData:
-        # Help on SpotFleetRequestConfigData: http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotFleetRequestConfigData.html
-        AllocationStrategy: lowestPrice
-        IamFleetRole: !GetAtt [SpotFleetRole, Arn]
-        SpotPrice:
-          Ref: SpotPrice
-        TargetCapacity:
-          Ref: NumOfSpots
-        LaunchSpecifications:
-          # This MUST be the Arn and is different from the AWS::EC2::Instance resource version of IamInstanceProfile: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-spotfleetrequestconfigdata-launchspecifications-iaminstanceprofile.html
-        - IamInstanceProfile:
-            Arn:
-              Fn::GetAtt:
-              - InstanceProfile
-              # - MinerInstanceProfile
-              - Arn
-          InstanceType:
-            Ref: InstanceSize
-          KeyName:
-            Ref: KeyName
-          # It might be worth pointing out that you cannot use !If in a !FindInMap, only !Ref: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-findinmap.html
-          # You also cannot use !Select and !Split within !FindInMap which is lame: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-split.html
-          ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", !Ref GPUType]
-          # SubnetID is not required and we want the spot bid to choose the cheapest AZ automatically.
-          # Reference - http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-spotfleetrequestconfigdata-launchspecifications.html#cfn-ec2-spotfleet-spotfleetrequestconfigdata-launchspecifications-instancetype
-          #SubnetId:
-            #Ref: Subnet1
-          # Might want to look at this for pricing strategy.
-          #WeightedCapacity: '8'
-          SecurityGroups:
-          - GroupId:
-              Ref: MinerInstanceSSG
-          # Look at this later.
-          #WeightedCapacity: '8'
-          UserData:
-            Fn::Base64: !Sub |
-              #!/bin/bash
-              # Normally would start with an yum update -y && yum upgrade -y but these instances
-              # are ephermeral and have no inbound ports open to 0.0.0.0/0. Although there
-              # is still inherent risk waiting for instance to update is a waste of time.
-              #
-              # p2 GPU instances have some special optimizations to squeeze out a bit more performance.
-              # Reference: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/accelerated-computing-instances.html#optimize_gpu
-
-              getgputype=$(nvidia-smi -q | grep 'Product Brand' | awk '{ print $4 }')
-              if [ $getgputype == "Tesla" ];then
-                nvidia-smi -pm 1
-                nvidia-smi --auto-boost-default=0
-                nvidia-smi -ac 2505,875
-              else
-                echo "Not a p2 instance."
-              fi
-              # First, get marlin Siacoin miner program. This miner will use the GPU.
-              wget https://github.com/SiaMining/marlin/releases/download/v1.0.0/marlin-1.0.0-linux-amd64.tar.gz
-              tar -xvf marlin-1.0.0-linux-amd64.tar.gz
-              #
-              # Next, prepare and make the Monero minerd miner. This miner will use the CPU.
-              nocpus=$(cat /proc/cpuinfo | grep processor | wc -l)
-              yum -y install git curl-devel libcurl glib-devel libtool
-              git clone https://github.com/wolf9466/cpuminer-multi
-              cd cpuminer-multi
-              ./autogen.sh
-              CFLAGS="-march=native" ./configure
-              make
-              cd ..
-              # Start both miners and redirect errors and output (&>>) to file for troubleshooting and/or referencing hashing statistics.
-              ###############################################################
-              # Instructions for Siamining here: https://siamining.com/help #
-              ###############################################################
-              nuhup siacoinminer=$(/marlin -H ${SiacoinMiningPool} -u ${SiaCoinAddr}.${WorkerName} -I ${MinerIntensity}) &>> SiaCoinHashingStats.txt &
-              ###########################################################################################
-              # Instructions for Monero mining at mineXMR.com here: http://minexmr.com/#getting_started #
-              ###########################################################################################
-              nuhup monerominer=$(/cpuminer-multi/minerd -a cryptonight -o stratum+tcp://${MoneroMiningPool} -u ${MoneroCoinAddr}.${WorkerName} -p x -t $nocpus) &>> MoneroHashingStats.txt &
   MinerInstanceSSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -394,30 +358,7 @@ Resources:
       # As long as you have a default VPC, don't have to specify: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html#cfn-ec2-securitygroup-vpcid
       VpcId:
         Ref: ChooseVPC
-  SpotFleetRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName:
-        Fn::Join:
-        - ''
-        - - Ref: AWS::Region
-          - "-"
-          - Fn::Join:
-            - ''
-            - - Ref: WorkerName
-              - -MINER-SPOT-FLEET-ROLE
-      AssumeRolePolicyDocument:
-        Statement:
-        - Action:
-          - sts:AssumeRole
-          Effect: Allow
-          Principal:
-            Service:
-            - spotfleet.amazonaws.com
-        Version: 2012-10-17
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
-      Path: /
+
   MinerInstanceProfile:
     DependsOn:
     - MinerInstanceRole
@@ -426,6 +367,7 @@ Resources:
       Path: "/"
       Roles:
       - Ref: MinerInstanceRole
+
   MinerInstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -463,13 +405,6 @@ Resources:
       HealthCheckType: EC2
       TerminationPolicies:
         - ClosestToNextInstanceHour
-      NotificationConfigurations:
-        - TopicARN: !Ref NotificationTopic
-          NotificationTypes:
-            - autoscaling:EC2_INSTANCE_LAUNCH
-            - autoscaling:EC2_INSTANCE_TERMINATE
-            - autoscaling:EC2_INSTANCE_LAUNCH_ERROR
-            - autoscaling:EC2_INSTANCE_TERMINATE_ERROR
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
