@@ -40,7 +40,9 @@ Metadata:
       SiacoinMiningPool:
         default: Siacoin Mining Pool
       MoneroCoinAddr:
-        default: Monero Wallet Address
+        default: Monero Wallet Address (User)
+      MoneroCoinPass:
+        default: Monero Wallet Address (Password)
       MoneroMiningPool:
         default: Monero Mining Pool
       NumOfSpots:
@@ -65,13 +67,13 @@ Metadata:
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
 Parameters:
   SiaCoinAddr:
-    Description: Leave my address to donate while you test -OR- enter YOUR Siacoin wallet address here.
+    Description: YOUR Siacoin wallet address here.
     Type: String
-    Default: 7b72309d6144b042599c08eed5fe51bd78bfcdc1210971cffc6c8987fdf4c6252ca2b299ffd3
+    Default: 0b431fecbc09386bb1d2a22c7c248d60b3e16c1aae37bc660945240704d37048082468d33ad9
   SiacoinMiningPool:
     Description: "Select a Siacoin mining pool. If you aren't sure which to select keep the default. Help can be found here: https://siamining.com/help"
     Type: String
-    Default: siamining.com:3333
+    Default: us-west.siamining.com:3333
     AllowedValues:
     - siamining.com:3333
     - asia.siamining.com:3333
@@ -79,13 +81,26 @@ Parameters:
     - us-east.siamining.com:3333
     - us-west.siamining.com:3333
   MoneroCoinAddr:
-    Description: Leave my address to donate while you test -OR- enter YOUR Monero wallet address here.
+    Description: YOUR Monero wallet address here. (xxx betterhash, uuid myriad.io)
     Type: String
-    Default: 4JUdGzvrMFDWrUUwY3toJATSeNwjn54LkCnKBPRzDuhzi5vSepHfUckJNxRL2gjkNrSqtCoRUrEDAgRwsQvVCjZbS3Pec2368ZCET3XDFN
+    Default: xxxWALLETxxx.0000FCB0
+    AllowedValues:
+      - xxxWALLETxxx.0000FCB0
+      - bffa8eba-8ac6-4808-8b09-f87741f14c29
+  MoneroCoinPass:
+    Description: YOUR Monero password.
+    Type: String
+    Default: xxxPASSxxx
   MoneroMiningPool:
     Description: Enter your Monero mining pool. Make sure you have the correct address and port. (eg. the.domain.name:port)
     Type: String
-    Default: mine.xmrpool.net:3333
+    Default: 98.202.252.84:3031
+    AllowedValues:
+      - 98.202.252.84:3031
+      - mine.xmrpool.net:3333
+      - pool.myriade.io:8222
+      - siamining.com:3333
+      - 98.202.252.84:3031
   NumOfSpots:
     Description: Select a number of spot instances to bid for. You will be charged for any instances that start. AWS typically limits a region to 20 instances depending on the instance type but you can request an increase.
     Type: Number
@@ -148,12 +163,13 @@ Parameters:
     Description: REQUIRED - Select an EXISTING EC2 key pair to launch your Siacoin miner instances.
     Type: AWS::EC2::KeyPair::KeyName
     ConstraintDescription: You must choose the name of an existing EC2 KeyPair
+    Default: brad-template
   SSHAccessIP:
     Description: Enter your source IP for SSH access. Use http://ipchicken.com if not sure. Note that 0.0.0.0/0 isn't allowed to protect yourself from yourself.
     Type: String
     MinLength: 9
     MaxLength: 18
-    Default : 0.0.0.0/32
+    Default : 98.202.252.84/32
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})(/32)"
     ConstraintDescription: Must be a valid CIDR range of the form x.x.x.x/32
 # Help for CloudFormation Mappings
