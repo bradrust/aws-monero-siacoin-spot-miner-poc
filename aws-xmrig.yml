@@ -1,8 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
 Description: |
-  This is a POC (Proof Of Concept) for benchmarking hashrates when simultaneously mining Siacoin and Monero cryptocurrenices on AWS spot instances.
-  Mining Siacoin and Monero on AWS is not profitable and this template should only be used for benchmarking and/or other educational activities.
+  CPU Miner
 
 # Help for CloudFormation Metadata
 # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/metadata-section-structure.html
@@ -12,22 +11,19 @@ Metadata:
     - Label:
         default: SIACOIN & MONERO INFORMATION
       Parameters:
-      - SiaCoinAddr
-      - SiacoinMiningPool
+      #- SiaCoinAddr
+      #- SiacoinMiningPool
+      - Miner
       - MoneroCoinAddr
       - MoneroMiningPool
     - Label:
         default: SPOT INSTANCES
       Parameters:
-      - NumOfSpots
-      - GPUType
-      - SpotPrice
       - WorkerName
     - Label:
         default: MINER INSTANCE TYPE
       Parameters:
       - InstanceSize
-      - MinerIntensity
       - ChooseVPC
       - KeyName
     - Label:
@@ -37,18 +33,18 @@ Metadata:
       - SubnetIds
 
     ParameterLabels:
-      SiaCoinAddr:
-        default: Siacoin Wallet Address
-      SiacoinMiningPool:
-        default: Siacoin Mining Pool
+      #SiaCoinAddr:
+      #  default: Siacoin Wallet Address
+      #SiacoinMiningPool:
+      #  default: Siacoin Mining Pool
+      Miner:
+        default: Which Miner to use
       MoneroCoinAddr:
         default: Monero Wallet Address (User)
       MoneroCoinPass:
         default: Monero Wallet Address (Password)
       MoneroMiningPool:
         default: Monero Mining Pool
-      NumOfSpots:
-        default: Number of Spot Instances
       GPUType:
         default: Type of GPU to Use
       SpotPrice:
@@ -74,20 +70,28 @@ Parameters:
     Type: Number
     Default: 5
     MaxValue: 10
-  SiaCoinAddr:
-    Description: YOUR Siacoin wallet address here.
+  #SiaCoinAddr:
+  #  Description: YOUR Siacoin wallet address here.
+  #  Type: String
+  #  Default: 0b431fecbc09386bb1d2a22c7c248d60b3e16c1aae37bc660945240704d37048082468d33ad9
+  #SiacoinMiningPool:
+  #  Description: "Select a Siacoin mining pool. If you aren't sure which to select keep the default. Help can be found here: https://siamining.com/help"
+  #  Type: String
+  #  Default: us-west.siamining.com:3333
+  #  AllowedValues:
+  #  - siamining.com:3333
+  #  - asia.siamining.com:3333
+  #  - eu.siamining.com:3333
+  #  - us-east.siamining.com:3333
+  #  - us-west.siamining.com:3333
+  Miner:
+    Description: Which miner to use
     Type: String
-    Default: 0b431fecbc09386bb1d2a22c7c248d60b3e16c1aae37bc660945240704d37048082468d33ad9
-  SiacoinMiningPool:
-    Description: "Select a Siacoin mining pool. If you aren't sure which to select keep the default. Help can be found here: https://siamining.com/help"
-    Type: String
-    Default: us-west.siamining.com:3333
+    Default: xmr
     AllowedValues:
-    - siamining.com:3333
-    - asia.siamining.com:3333
-    - eu.siamining.com:3333
-    - us-east.siamining.com:3333
-    - us-west.siamining.com:3333
+      - xmr
+      - tron
+      - aave
   MoneroCoinAddr:
     Description: YOUR Monero wallet address here. (xxx betterhash, uuid myriad.io)
     Type: String
@@ -100,7 +104,7 @@ Parameters:
     Type: String
     Default: xxxPASSxxx
   MoneroMiningPool:
-    Description: Enter your Monero mining pool. Make sure you have the correct address and port. (eg. the.domain.name:port)
+    Description: Monero pool betterhash:3031 supportxmr:3032 tron:3034 2miners:3035
     Type: String
     Default: 98.202.252.84:3031
     AllowedValues:
@@ -109,35 +113,12 @@ Parameters:
       - pool.myriade.io:8222
       - siamining.com:3333
       - 98.202.252.84:3031
+      - 98.202.252.84:3032
       - 98.202.252.84:3034
+      - 98.202.252.84:3035
   SubnetIds:
     Description: The subnets where the instances will be deployed - at least 3 subnets!
     Type: List<AWS::EC2::Subnet::Id>
-  NumOfSpots:
-    Description: Select a number of spot instances to bid for. You will be charged for any instances that start. AWS typically limits a region to 20 instances depending on the instance type but you can request an increase.
-    Type: Number
-    Default: 1
-    AllowedValues:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
-    - 10
-    - 11
-    - 12
-    - 13
-    - 14
-    - 15
-    - 16
-    - 17
-    - 18
-    - 19
-    - 20
   # This is redundant as CloudFormation has a !Split function that we could use in the InstanceSize parameter below
   # but unfortunately, it doesn't appear to be possible to use INSIDE a FindInMap function.
   GPUType:
@@ -220,7 +201,7 @@ Mappings:
       g2: ami-c5eadcd3
       c5a: ami-0996d3051b72b5b2c
       t2: ami-0996d3051b72b5b2c
-      ImageId: ami-0996d3051b72b5b2c
+      ImageId: ami-03d315ad33b9d49c4
     # US East (Ohio) - only supports p2 family.
     us-east-2:
       p2: ami-c8f3a8ad
@@ -230,13 +211,14 @@ Mappings:
     us-west-1:
       g2: ami-68002c08
       c5a: ami-0996d3051b72b5b2c
-      ImageId: ami-0996d3051b72b5b2c
+      ImageId: ami-0ebef2838fb2605b7
     # US West (Oregon)
     us-west-2:
       p2: ami-aaebfcd3
       g2: ami-aaebfcd3
       c5a: ami-0996d3051b72b5b2c
-      ImageId: ami-0996d3051b72b5b2c
+      # ImageId: ami-0996d3051b72b5b2c
+      ImageId: ami-0928f4202481dfdf6
     # Asia Pacific (Singapore) - only supports g2 family.
     ap-southeast-1:
       g2: ami-f35cd290
@@ -306,6 +288,18 @@ Resources:
               tar xvzf xmrig-6.9.0-focal-x64.tar.gz
               cd xmrig-6.9.0
 
+              cat > hugepages.sh << __EOF__
+              #!/bin/bash -e
+              sysctl -w vm.nr_hugepages=$(nproc)
+              for i in \$(find /sys/devices/system/node/node* -maxdepth 0 -type d);
+              do
+                  echo 3 > "\$i/hugepages/hugepages-1048576kB/nr_hugepages";
+              done
+              echo "1GB pages successfully enabled"
+              __EOF__
+
+              bash ./hugepages.sh
+
               cat > config.json << __EOF__
               {
                   "autosave": true,
@@ -330,9 +324,32 @@ Resources:
               cat > runner.sh << __EOF__
               #!/bin/bash -x
               cd /xmrig-6.9.0
+              echo "starting" > xmrig.log
               while (true); do
-                ./xmrig \
-                  >> xmrig.log 2>&1
+
+                echo -n "attempt to use miner ${Miner}"
+
+                # these are all proxied
+                case ${Miner} in
+                  xmr)
+                    ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx/0 -O x:x >> xmrig.log 2>&1
+                    ;;
+
+                  tron)
+                    ./xmrig -o rx.unmineable.com:3333 -a rx -k -u TRX:TCHgjbqTmqbAtcLK7Ndwsugv5CCt62oTSN.xdog
+                    # ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx -O x:x >> xmrig.log 2>&1
+                    ;;
+
+                  aave)
+                    ./xmrig -o rx.unmineable.com:3333 -a rx -k -u AAVE:0x9CbF2d447CaF77d4A86B355d7f9Cc9065e48b82d.xdog
+                    # ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx -O x:x >> xmrig.log 2>&1
+                    ;;
+
+                  *)
+                    echo "dunno what kind of miner to use"
+                    sleep 60000
+                    ;;
+                esac
               done
               __EOF__
               chmod +x runner.sh
@@ -410,7 +427,7 @@ Resources:
           Value: !Ref AWS::StackName
           PropagateAtLaunch: true
 
-Outputs:
-  SiaMiningStatistics:
-    Description: See your mining statistics here
-    Value: !Join [ "", [ "https://siamining.com/addresses/", Ref: SiaCoinAddr ] ]
+#Outputs:
+#  SiaMiningStatistics:
+#    Description: See your mining statistics here
+#    Value: !Join [ "", [ "https://siamining.com/addresses/", Ref: SiaCoinAddr ] ]

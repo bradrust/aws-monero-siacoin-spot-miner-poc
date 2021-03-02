@@ -6,6 +6,7 @@ Metadata:
       - Label:
           default: Miner Configuration
         Parameters:
+          - Miner
           - EthWallet
           - Url1
           - Url2
@@ -45,11 +46,14 @@ Parameters:
     MinLength: 9
     MaxLength: 18
     Default : 98.202.252.84/32
+    AllowedValues:
+      - 0.0.0.0/0
+      - 98.202.252.84/32
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})(/32)"
     ConstraintDescription: Must be a valid CIDR range of the form x.x.x.x/32
   InstanceType:
     Type: String
-    Default: g4dn.12xlarge
+    Default: g4dn.xlarge
     AllowedValues:
       ## The commented-out are not worth it - too slow for the price
       #- g3s.xlarge    # 1 GPU Tesla M60
@@ -75,6 +79,16 @@ Parameters:
     Default: "0x36568B6348f1d5256Fed5E0a007AEA7541f6d618"
     AllowedPattern: "0x[0-9a-fA-F]+"
 
+  Miner:
+    Type: String
+    Description: What kind of miner
+    Default: twominerseth
+    AllowedValues:
+      - betterhasheth
+      - twominersravencoin
+      - twominerseth
+      - ethermineeth
+
   Url1:
     Type: String
     Description: Pool Url 1
@@ -88,7 +102,7 @@ Parameters:
   Worker:
     Type: String
     Description: Worker
-    Default: "xxxWALLETxxx%2e0000FCB0"
+    Default: "xxxWALLETxxx.0000FCB0"
 
   Password:
     Type: String
@@ -129,15 +143,21 @@ Mappings:
     eu-west-3:
       ImageId: ami-0346672391424d8e5
     sa-east-1:
-      ImageId: ami-048837a0bfc1ba1a6
+      #ImageId: ami-048837a0bfc1ba1a6
+      ImageId: ami-098b893bcc691f3bd
     us-east-1:
-      ImageId: ami-063585f0e06d22308
+      #ImageId: ami-063585f0e06d22308
+      #ImageId: ami-098b893bcc691f3bd
+      ImageId: ami-072519eedc1730252
     us-east-2:
-      ImageId: ami-01bd6a1621a6968d7
+      #ImageId: ami-01bd6a1621a6968d7
+      ImageId: ami-09f77b37a0d32243a
     us-west-1:
-      ImageId: ami-05fbe06ba1b862ef6
+      #ImageId: ami-05fbe06ba1b862ef6
+      ImageId: ami-0fe05354c2b605fe4
     us-west-2:
-      ImageId: ami-0bc87a16c757a7f07
+      #ImageId: ami-0bc87a16c757a7f07
+      ImageId: ami-084f81625fbc98fa4
 
   SpotPriceMap:
     g4dn.xlarge:
@@ -192,12 +212,35 @@ Resources:
           'Fn::Base64':
             'Fn::Sub': |
               #!/bin/bash -x
-              cd /tmp
+
+              mkdir /crypto
+              cd /crypto
+
+              wget https://github.com/trexminer/T-Rex/releases/download/0.19.11/t-rex-0.19.11-linux-cuda11.1.tar.gz
+              mkdir t-rex
+              (cd t-rex && tar xvfz ../t-rex-0.19.11-linux-cuda11.1.tar.gz)
+
+              wget https://github.com/develsoftware/GMinerRelease/releases/download/2.45/gminer_2_45_linux64.tar.xz
+              mkdir gminer
+              (cd gminer && tar xvf ../gminer_2_45_linux64.tar.xz)
+
+              # this apparently gets overwritten.. uh!!!
+              #cat > /etc/rc.local << __EOF__
+              #cd /crypto/bin
+              #nohup ./runner.sh &
+              #__EOF__
+              #chmod +x /etc/rc.local
+
               INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
               INSTANCE_ID=AWS-ETH-WORKER
+
+              cd /crypto
               wget -O ethminer.tar.gz https://github.com/ethereum-mining/ethminer/releases/download/v0.18.0/ethminer-0.18.0-cuda-9-linux-x86_64.tar.gz
               tar xvfz ethminer.tar.gz
               cd bin
+
+              echo "starting" > /crypto/ethminer.log
+
               cat > runner.sh << __EOF__
               #!/bin/bash -x
               #SERVERS=(us1 us2 eu1 asia1)
@@ -210,11 +253,46 @@ Resources:
                 #  -P stratums://${EthWallet}.${!INSTANCE_ID}@us2.ethermine.org:5555 \
                 #  -P stratums://${EthWallet}.${!INSTANCE_ID}@eu1.ethermine.org:5555 \
                 #  -P stratums://${EthWallet}.${!INSTANCE_ID}@asia1.ethermine.org:5555 \
-                # >> /tmp/ethminer.log 2>&1
-                ./ethminer \
-                  -P stratums://${Worker}.${Password}@${Url1} \
-                  -P stratums://${Worker}.${Password}@${Url2} \
-                  >> /tmp/ethminer.log 2>&1
+                # >> /crypto/ethminer.log 2>&1
+
+                case ${Miner} in
+                  betterhasheth)
+                    echo -n "betterhasheth"
+                    cd /crypto/bin
+                    ./ethminer \
+                      -P stratum://${Worker}:${Password}@${Url1} \
+                      -P stratum://${Worker}:${Password}@${Url2} \
+                      > /crypto/ethminer.log 2>&1
+                    ;;
+
+                  ethermineeth)
+                    echo -n "ethermineeth"
+                    cd /crypto/bin
+                    ./ethminer \
+                      -P stratums://${EthWallet}@us2.ethermine.org:5555 \
+                      -P stratums://${EthWallet}@us1.ethermine.org:5555 \
+                      > /crypto/ethminer.log 2>&1
+                    ;;
+
+                  twominerseth)
+                    echo -n "2miners"
+                    cd /crypto/gminer
+                    ./miner --algo ethash --server eth.2miners.com:2020 --user ${EthWallet} --pass x \
+                       >> /crypto/ethminer.log 2>&1
+                    ;;
+
+                  twominersravencoin)
+                    echo -n "2miners"
+                    cd /crypto/gminer
+                    ./miner --algo kawpow --server us-rvn.2miners.com:6060 --user RMRurzYnCYygGHuRygKKMwcuVbMV4emWBW --pass x \
+                       >> /crypto/ethminer.log 2>&1
+                    ;;
+
+                  *)
+                    echo "dunno what kind of miner to use"
+                    sleep 60000
+                    ;;
+                esac
               done
               __EOF__
               chmod +x runner.sh
