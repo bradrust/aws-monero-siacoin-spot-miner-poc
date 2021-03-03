@@ -55,12 +55,14 @@ Parameters:
     Type: String
     Default: g4dn.xlarge
     AllowedValues:
+      # Amazon Linux 2 AMI with NVIDIA TESLA GPU Driver
       ## The commented-out are not worth it - too slow for the price
       #- g3s.xlarge    # 1 GPU Tesla M60
       #- g3.8xlarge    # 2 GPU Tesla M60
       - g4dn.xlarge   # 1 GPU Tesla T4 -- best value (cost/performance)
       - g4dn.2xlarge  # 1 GPU Tesla T4
       - g4dn.12xlarge # 4 GPU Tesla T4
+      - g4dn.metal
       #- p2.xlarge     # 1 GPU Tesla K80
       #- p2.8xlarge    # 8 GPU Tesla K80
       #- p2.16xlarge   # 16 GPU Tesla K80
@@ -148,13 +150,20 @@ Mappings:
     us-east-1:
       #ImageId: ami-063585f0e06d22308
       #ImageId: ami-098b893bcc691f3bd
-      ImageId: ami-072519eedc1730252
+      # ubuntu 18
+      #ImageId: ami-072519eedc1730252
+      #amazon linux
+      ImageId: ami-06b7e61d95c2e9cc8
     us-east-2:
       #ImageId: ami-01bd6a1621a6968d7
-      ImageId: ami-09f77b37a0d32243a
+      #ImageId: ami-09f77b37a0d32243a
+      #amazon linux
+      ImageId: ami-04f99155cdcd8fb98
     us-west-1:
       #ImageId: ami-05fbe06ba1b862ef6
-      ImageId: ami-0fe05354c2b605fe4
+      #ImageId: ami-0fe05354c2b605fe4
+      #amazon linux
+      ImageId: ami-0a8c59d72e15fd3fd
     us-west-2:
       #ImageId: ami-0bc87a16c757a7f07
       ImageId: ami-084f81625fbc98fa4
@@ -245,6 +254,10 @@ Resources:
               #!/bin/bash -x
               #SERVERS=(us1 us2 eu1 asia1)
               SERVERS=(us1 us2)
+
+              # when using amazon linux
+              export SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.trust.crt
+
               while (true); do
                 PREFERRED_SERVER=\${!SERVERS[\${!RANDOM} % \${!#SERVERS[@]}]}
                 #./ethminer \
