@@ -7,6 +7,8 @@ Metadata:
           default: Miner Configuration
         Parameters:
           - Miner
+          - CpuMiner
+          - MoneroMiningPool
           - EthWallet
           - Url1
           - Url2
@@ -91,6 +93,16 @@ Parameters:
       - twominerseth
       - ethermineeth
 
+  CpuMiner:
+    Type: String
+    Description: What kind of cpu miner
+    Default: none
+    AllowedValues:
+      - none
+      - xmr
+      - tron
+      - aave
+
   Url1:
     Type: String
     Description: Pool Url 1
@@ -114,6 +126,20 @@ Parameters:
   VpcId:
     Description: The VPC where this stack will be deployed
     Type: AWS::EC2::VPC::Id
+
+  MoneroMiningPool:
+    Description: Monero pool betterhash:3031 supportxmr:3032 tron:3034 2miners:3035
+    Type: String
+    Default: 98.202.252.84:3031
+    AllowedValues:
+      - 98.202.252.84:3031
+      - mine.xmrpool.net:3333
+      - pool.myriade.io:8222
+      - siamining.com:3333
+      - 98.202.252.84:3031
+      - 98.202.252.84:3032
+      - 98.202.252.84:3034
+      - 98.202.252.84:3035
 
   SubnetIds:
     Description: The subnets where the instances will be deployed - at least 3 subnets!
@@ -166,7 +192,9 @@ Mappings:
       ImageId: ami-0a8c59d72e15fd3fd
     us-west-2:
       #ImageId: ami-0bc87a16c757a7f07
-      ImageId: ami-084f81625fbc98fa4
+      #ImageId: ami-084f81625fbc98fa4
+      #amazon linux
+      ImageId: ami-09768a89f9e5da6d3
 
   SpotPriceMap:
     g4dn.xlarge:
@@ -240,6 +268,47 @@ Resources:
               #__EOF__
               #chmod +x /etc/rc.local
 
+              #wget https://github.com/xmrig/xmrig/releases/download/v6.9.0/xmrig-6.9.0-focal-x64.tar.gz
+              #tar xvzf xmrig-6.9.0-focal-x64.tar.gz
+              wget https://github.com/xmrig/xmrig/releases/download/v6.9.0/xmrig-6.9.0-linux-static-x64.tar.gz
+              tar xvzf xmrig-6.9.0-linux-static-x64.tar.gz
+
+              cd /crypto/xmrig-6.9.0
+
+              cat > hugepages.sh << __EOF__
+              #!/bin/bash -e
+              sysctl -w vm.nr_hugepages=$(nproc)
+              for i in \$(find /sys/devices/system/node/node* -maxdepth 0 -type d);
+              do
+                  echo 3 > "\$i/hugepages/hugepages-1048576kB/nr_hugepages";
+              done
+              echo "1GB pages successfully enabled"
+              __EOF__
+
+              bash ./hugepages.sh
+
+              cat > config.json << __EOF__
+              {
+                  "autosave": true,
+                  "cpu": {
+                    "enabled": true,
+                    "huge-pages": true
+                  },
+                  "opencl": false,
+                  "cuda": false,
+                  "pools": [
+                      {
+                          "url": "${MoneroMiningPool}",
+                          "user": "aws-remote",
+                          "pass": "xxxPASSxxx",
+                          "rig-id": null,
+                          "tls": true
+                      }
+                  ]
+              }
+              __EOF__
+
+
               INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
               INSTANCE_ID=AWS-ETH-WORKER
 
@@ -310,6 +379,39 @@ Resources:
               __EOF__
               chmod +x runner.sh
               nohup ./runner.sh &
+
+              cd /crypto/xmrig-6.9.0
+              cat > cpurunner.sh << __EOF__
+              #!/bin/bash -x
+              cd /xmrig-6.9.0
+              echo "starting" > xmrig.log
+              while (true); do
+
+                echo -n "attempt to use miner ${Miner}"
+
+                # these are all proxied
+                case ${CpuMiner} in
+                  xmr)
+                    ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx/0 -O x:x >> xmrig.log 2>&1
+                    ;;
+
+                  tron)
+                    ./xmrig -o rx.unmineable.com:3333 -a rx -k -u TRX:TCHgjbqTmqbAtcLK7Ndwsugv5CCt62oTSN.xdog
+                    ;;
+
+                  aave)
+                    ./xmrig -o rx.unmineable.com:3333 -a rx -k -u AAVE:0x9CbF2d447CaF77d4A86B355d7f9Cc9065e48b82d.xdog
+                    ;;
+
+                  *)
+                    echo "dunno what kind of miner to use"
+                    sleep 60000
+                    ;;
+                esac
+              done
+              __EOF__
+              chmod +x cpurunner.sh
+              nohup ./cpurunner.sh &
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
