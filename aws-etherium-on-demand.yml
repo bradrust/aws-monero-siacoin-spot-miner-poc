@@ -92,6 +92,7 @@ Parameters:
       - twominersravencoin
       - twominerseth
       - ethermineeth
+      - grin
 
   CpuMiner:
     Type: String
@@ -105,22 +106,22 @@ Parameters:
 
   Url1:
     Type: String
-    Description: Pool Url 1
+    Description: Pool Url 1 betterhash-eth only
     Default: "88.198.11.177:55439"
 
   Url2:
     Type: String
-    Description: Pool Url 2
+    Description: Pool Url 2 (betterhash-eth only)
     Default: "38.91.101.106:55439"
 
   Worker:
     Type: String
-    Description: Worker
+    Description: Worker (betterhash-eth only)
     Default: "xxxWALLETxxx.0000FCB0"
 
   Password:
     Type: String
-    Description: Password
+    Description: Password (betterhash-eth only)
     Default: "xxxPASSxxx"
 
   VpcId:
@@ -161,7 +162,9 @@ Mappings:
     ca-central-1:
       ImageId: ami-0ca5bba27cf7db8f0
     eu-central-1:
-      ImageId: ami-01227276a4e5a4a31
+      #ImageId: ami-01227276a4e5a4a31
+      #amazon linux
+      ImageId: ami-05c02ccbeeeb635ca
     eu-north-1:
       ImageId: ami-080691999cd85e762
     eu-west-1:
@@ -261,15 +264,15 @@ Resources:
               mkdir gminer
               (cd gminer && tar xvf ../gminer_2_45_linux64.tar.xz)
 
-              # this apparently gets overwritten.. uh!!!
-              #cat > /etc/rc.local << __EOF__
-              #cd /crypto/bin
-              #nohup ./runner.sh &
-              #__EOF__
-              #chmod +x /etc/rc.local
+              wget https://github.com/mimblewimble/grin-miner/releases/download/v4.0.0/grin-miner-v4.0.0-linux-amd64.tar.gz
+              tar xzvf grin-miner-v4.0.0-linux-amd64.tar.gz
+              yum install -y openssl11-devel
 
+              #ubuntu 20
               #wget https://github.com/xmrig/xmrig/releases/download/v6.9.0/xmrig-6.9.0-focal-x64.tar.gz
               #tar xvzf xmrig-6.9.0-focal-x64.tar.gz
+
+              #amazon linux 2 with nvidia drivers
               wget https://github.com/xmrig/xmrig/releases/download/v6.9.0/xmrig-6.9.0-linux-static-x64.tar.gz
               tar xvzf xmrig-6.9.0-linux-static-x64.tar.gz
 
@@ -308,6 +311,29 @@ Resources:
               }
               __EOF__
 
+              cd /crypto/grin-miner
+              cat > grin-miner.toml << __EOF__
+              [logging]
+              log_to_stdout = true
+              stdout_log_level = "Info"
+              log_to_file = true
+              file_log_level = "Debug"
+              log_file_path = "grin-miner.log"
+              log_file_append = true
+
+              [mining]
+              run_tui = false
+              stratum_server_addr = "us-east-stratum.grinmint.com:4416"
+              stratum_server_login = "rust.brad+grin@gmail.com/aws"
+              #stratum_server_password = "bradmovedtoparkcityin2020"
+              stratum_server_tls_enabled = true
+
+              [[mining.miner_plugin_config]]
+              plugin_name = "cuckarooz_cuda_29"
+              [mining.miner_plugin_config.parameters]
+              #device = 1
+              __EOF__
+
 
               INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
               INSTANCE_ID=AWS-ETH-WORKER
@@ -328,14 +354,6 @@ Resources:
               export SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.trust.crt
 
               while (true); do
-                PREFERRED_SERVER=\${!SERVERS[\${!RANDOM} % \${!#SERVERS[@]}]}
-                #./ethminer \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@\${!PREFERRED_SERVER}.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@us1.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@us2.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@eu1.ethermine.org:5555 \
-                #  -P stratums://${EthWallet}.${!INSTANCE_ID}@asia1.ethermine.org:5555 \
-                # >> /crypto/ethminer.log 2>&1
 
                 case ${Miner} in
                   betterhasheth)
@@ -370,6 +388,24 @@ Resources:
                        >> /crypto/ethminer.log 2>&1
                     ;;
 
+                  grin)
+                    echo -n "grin"
+                    cd /crypto/grin-miner
+                    #./grin-miner >> /crypto/grinminer.log 2>&1
+                    cd /crypto/gminer
+                    #./miner --algo grin32 \
+                    #    --server us-east-stratum.grinmint.com:4416 \
+                    #    --user rust.brad+grin@gmail.com/aws \
+                    #    --ssl true \
+                    #    >> /crypto/gminer.log 2>&1
+                    ./miner --algo grin32 \
+                            --ssl true \
+                            --server us-grin.2miners.com \
+                            --port 13030 \
+                            --user grin10sfuzx7xg2mr4hyn0la0u8n6zck93ugkw2yv7xlxna7mhgr4nqwsd9n6nf.aws \
+                        >> /crypto/gminer.log 2>&1
+                    ;;
+
                   *)
                     echo "dunno what kind of miner to use"
                     sleep 60000
@@ -400,6 +436,7 @@ Resources:
                     ;;
 
                   aave)
+                    # ledger account
                     ./xmrig -o rx.unmineable.com:3333 -a rx -k -u AAVE:0x9CbF2d447CaF77d4A86B355d7f9Cc9065e48b82d.xdog
                     ;;
 
