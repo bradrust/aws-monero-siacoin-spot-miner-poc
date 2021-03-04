@@ -101,6 +101,8 @@ Parameters:
     AllowedValues:
       - none
       - xmr
+      - xmr2miners
+      - xmrsupportxmr
       - tron
       - aave
 
@@ -429,6 +431,20 @@ Resources:
                 case ${CpuMiner} in
                   xmr)
                     ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx/0 -O x:x >> xmrig.log 2>&1
+                    ;;
+
+                  xmr2miners)
+                    ./xmrig -c config.json --tls \
+                         -o xmr.2miners.com:12222 -a rx \
+                         -O 45NiKNo4evmHFNup5L48DoVaHo6fJvHNZDigH4ygXKj3UQCat5u5sxG2dezLN2MvR31uw9K3wqHwUc1CVwCaHkvX8eyTbQD:x \
+                         >> xmrig.log 2>&1
+                    ;;
+
+                  xmrsupportxmr)
+                    ./xmrig -c config.json --tls \
+                         -o pool.supportxmr.com:9000 -a rx \
+                         -O 45NiKNo4evmHFNup5L48DoVaHo6fJvHNZDigH4ygXKj3UQCat5u5sxG2dezLN2MvR31uw9K3wqHwUc1CVwCaHkvX8eyTbQD:aws \
+                         >> xmrig.log 2>&1
                     ;;
 
                   tron)
