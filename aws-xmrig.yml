@@ -153,6 +153,8 @@ Parameters:
     - c5a.8xlarge
     - c5a.12xlarge
     - t2.small
+    #- c6g.8xlarge
+    #- c6gd.metal
   MinerIntensity:
     Description: Select miner intensity for marlin. Keep the default of 28 if not sure.
     Type: String

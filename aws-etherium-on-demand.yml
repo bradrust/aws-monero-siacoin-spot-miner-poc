@@ -79,9 +79,12 @@ Parameters:
 
   EthWallet:
     Type: String
-    Description: Ethereum Wallet Address
-    Default: "0x36568B6348f1d5256Fed5E0a007AEA7541f6d618"
+    Description: Ethereum Wallet Address (36 ledger, 7c mew)
+    Default: "0x7c25B5dBe95153812901f1dD9a16C0EE41124114"
     AllowedPattern: "0x[0-9a-fA-F]+"
+    AllowedValues:
+      - "0x36568B6348f1d5256Fed5E0a007AEA7541f6d618"
+      - "0x7c25B5dBe95153812901f1dD9a16C0EE41124114"
 
   Miner:
     Type: String
