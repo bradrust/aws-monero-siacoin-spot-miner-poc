@@ -187,22 +187,31 @@ Mappings:
       # ubuntu 18
       #ImageId: ami-072519eedc1730252
       #amazon linux
-      ImageId: ami-06b7e61d95c2e9cc8
+      #ImageId: ami-06b7e61d95c2e9cc8
+      #amazon nvidia
+      ImageId: ami-01c2e8d3a228c296b
     us-east-2:
       #ImageId: ami-01bd6a1621a6968d7
       #ImageId: ami-09f77b37a0d32243a
       #amazon linux
-      ImageId: ami-04f99155cdcd8fb98
+      #ImageId: ami-04f99155cdcd8fb98
+      #amazon nvidia
+      ImageId: ami-0aec9143a311df91e
+
     us-west-1:
       #ImageId: ami-05fbe06ba1b862ef6
       #ImageId: ami-0fe05354c2b605fe4
       #amazon linux
-      ImageId: ami-0a8c59d72e15fd3fd
+      #ImageId: ami-0a8c59d72e15fd3fd
+      #amazon nvidia
+      ImageId: ami-06c9bc6ba505faac2
     us-west-2:
       #ImageId: ami-0bc87a16c757a7f07
       #ImageId: ami-084f81625fbc98fa4
       #amazon linux
-      ImageId: ami-09768a89f9e5da6d3
+      #ImageId: ami-09768a89f9e5da6d3
+      #amazon nvidia
+      ImageId: ami-0cd7b1c4bc3a83cfa
 
   SpotPriceMap:
     g4dn.xlarge:
