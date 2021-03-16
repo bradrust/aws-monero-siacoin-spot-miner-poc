@@ -96,6 +96,7 @@ Parameters:
       - twominerseth
       - ethermineeth
       - grin
+      - zcash
 
   CpuMiner:
     Type: String
@@ -353,6 +354,10 @@ Resources:
               INSTANCE_ID=AWS-ETH-WORKER
 
               cd /crypto
+              wget https://github.com/funakoshi2718/funakoshi-miner/releases/download/v5.2/funakoshiMiner
+              chmod +x funakoshiMiner
+
+              cd /crypto
               wget -O ethminer.tar.gz https://github.com/ethereum-mining/ethminer/releases/download/v0.18.0/ethminer-0.18.0-cuda-9-linux-x86_64.tar.gz
               tar xvfz ethminer.tar.gz
               cd bin
@@ -370,6 +375,15 @@ Resources:
               while (true); do
 
                 case ${Miner} in
+
+                  zcash)
+                    cd /crypto/
+                    echo t1LVn2MQfEJ6yqCNAV5zcpPsUq9nz9UTYyU
+
+                    ./funakoshiMiner -l us1-zcash.flypool.org -u t1LVn2MQfEJ6yqCNAV5zcpPsUq9nz9UTYyU \
+                      > /crypto/ethminer.log 2>&1
+                    ;;
+
                   betterhasheth)
                     echo -n "betterhasheth"
                     cd /crypto/bin
