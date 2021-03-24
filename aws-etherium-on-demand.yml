@@ -109,6 +109,7 @@ Parameters:
       - xmrsupportxmr
       - tron
       - aave
+      - verus
 
   Url1:
     Type: String
@@ -358,6 +359,12 @@ Resources:
               chmod +x funakoshiMiner
 
               cd /crypto
+              wget https://github.com/VerusCoin/nheqminer/releases/download/v0.8.2/nheqminer-Linux-v0.8.2.tgz
+              tar xzf nheqminer-Linux-v0.8.2.tgz
+              tar xzf nheqminer-Linux-v0.8.2.tar.gz
+
+
+              cd /crypto
               wget -O ethminer.tar.gz https://github.com/ethereum-mining/ethminer/releases/download/v0.18.0/ethminer-0.18.0-cuda-9-linux-x86_64.tar.gz
               tar xvfz ethminer.tar.gz
               cd bin
@@ -455,6 +462,15 @@ Resources:
 
                 # these are all proxied
                 case ${CpuMiner} in
+
+                  verus)
+                    cd /crypto/nheqminer
+                    ./nheqminer -t 4 -v -l verushash.mine.zergpool.com:3300 \
+                      -u RP3Cvb8G75cHqpuTmZ3qPJpWrHdz7YZ1w7 \
+                      -p c=VRSC,mc=VRSC \
+                       > /crypto/nheqminer.log 2>&1
+                    ;;
+
                   xmr)
                     ./xmrig -c config.json --tls -o ${MoneroMiningPool} \
                         --log-file=xmrig.log --no-color --randomx-1gb-pages \
